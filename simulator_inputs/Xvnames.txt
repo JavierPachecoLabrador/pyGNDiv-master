@@ -1,0 +1,1 @@
+N	Cab	Cca	Cant	Cs	Cw	Cdm	LIDFa	LIDFb	LAI	hc	leafwidth	Vcmo	m	fqe	kV	Rdparam	Type	BSMBrightness	BSMlat	BSMlon	SMp	SMC	rss	tts	Gfrac	Rin	Rli	DGr	Ta	p	ea	u	Ca
