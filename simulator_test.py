@@ -769,14 +769,12 @@ if __name__ == "__main__":
     # Store Functional Diversity Metrics --------------------------------------
     if sensor == 'Hy':
         with open(folder_out + 'FDMs_PT.pkl', 'wb') as f:
-            pickle.dump((FRic_PT[n_runs], VBdp_PT[n_runs],
-                         VBdp_Gnorm_PT[n_runs], VBdp_Lnorm_PT[n_runs],
-                         RQdp_PT[n_runs], RQdp_Gnorm_PT[n_runs],
-                         ENdp_Gnorm_PT[n_runs], RQdp_Lnorm_PT[n_runs],
-                         ENdp_Lnorm_PT[n_runs]), f)
+            pickle.dump((FRic_PT, VBdp_PT, VBdp_Gnorm_PT, VBdp_Lnorm_PT,
+                         RQdp_PT, RQdp_Gnorm_PT, ENdp_Gnorm_PT, RQdp_Lnorm_PT,
+                         ENdp_Lnorm_PT), f)
 
     with open(folder_out + 'FDMs_%s.pkl' % sensor, 'wb') as f:
-        pickle.dump((FRic_R[n_runs], VBdp_R[n_runs], VBdp_Gnorm_R[n_runs],
-                     VBdp_Lnorm_R[n_runs], RQdp_R[n_runs],
-                     RQdp_Gnorm_R[n_runs], ENdp_Gnorm_R[n_runs],
-                     RQdp_Lnorm_R[n_runs], ENdp_Lnorm_R[n_runs]), f)
+        pickle.dump((FRic_R, VBdp_R, VBdp_Gnorm_R, VBdp_Lnorm_R, RQdp_R,
+                     RQdp_Gnorm_R, ENdp_Gnorm_R, RQdp_Lnorm_R,
+                     ENdp_Lnorm_R), f)
+

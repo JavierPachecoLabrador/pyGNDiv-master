@@ -3,3 +3,4 @@ validation.py
 vert.txt
 Test/*
 *.png
+*.pyc
