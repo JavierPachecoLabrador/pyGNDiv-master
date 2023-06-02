@@ -11,7 +11,7 @@ This script is used to test and show who the pyGNDiv package works.
 
 It uses the simualted vegetation traits and spectral reflectance factors
     to calculate diversity indices and to partition diversity followinf the
-    methods described in Pacheco-Labrador et al., under review.
+    methods described in Pacheco-Labrador et al., 2023.
 
 Then, it plots the resulting metrics to show how generalizable normalizaiton
     improves the relationships between field and remote sensing-derived metrics
@@ -20,7 +20,7 @@ Then, it plots the resulting metrics to show how generalizable normalizaiton
 
 Cite as:
   Pacheco-Labrador, J., de Bello, F., Migliavacca , M., Ma, X., Carvalhais, N.,
-    & Wirth, C. (under review). A generalizable normalization for assessing
+    & Wirth, C. (2023). A generalizable normalization for assessing
     plant functional diversity metrics across scales from remote sensing.
     Methods in Ecology and Evolution.
 """

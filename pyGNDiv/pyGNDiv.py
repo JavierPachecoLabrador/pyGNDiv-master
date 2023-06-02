@@ -11,7 +11,7 @@ This package contains the main functions of the Generalizable Normalization of
 
 Cite as:
   Pacheco-Labrador, J., de Bello, F., Migliavacca , M., Ma, X., Carvalhais, N.,
-    & Wirth, C. (under review). A generalizable normalization for assessing
+    & Wirth, C. (2023). A generalizable normalization for assessing
     plant functional diversity metrics across scales from remote sensing.
     Methods in Ecology and Evolution.
 
@@ -33,7 +33,7 @@ approaches:
     * Non-normalization: Use dissimilarity's absolute value
     * Local normalization: Divide by the maximum dissimilarity of the dataset
     * Generalizable normalization: Data-agnostic normalization proposed by
-    Pacheco-Labrador et al, (under review)
+    Pacheco-Labrador et al, (2023)
 
 REFERENCES:
     de Bello, F., Lavergne, S., Meynard, C.N., Lepš, J., & Thuiller, W.
@@ -225,7 +225,7 @@ def euc_dist_rao(x_, i_, j_):
 # %% Maximum values for Generalizable Normalization
 """
 Maximum values proposed for the generalizable normalization approach in
-Pacheco-Labrador et al, under review
+Pacheco-Labrador et al, 2023
 """
 
 
@@ -263,7 +263,7 @@ Methods in Ecology and Evolution, 12, 1093-1102.
 
 Rao's Q can be computed from plant functional traits but also from taxonomic
 information (special case where Rao Q equals the Gini-Simpson index, not shown
-in Pacheco-Labrador, et al (under review))
+in Pacheco-Labrador, et al (2023))
 
 In this case, the functions are adatped to ingest data in the format of
 species x trait and abundance x species matrices.
@@ -402,7 +402,7 @@ A distance-based framework for measuring functional diversity from multiple
 traits. Ecology, 91, 299-305.
 In this case, FRic is normalized using a local (by the maximum value in the
 region) and a Generalizable Normalization approach (Pacheco-Labrador et al,
-under review)
+2023)
 """
 
 
@@ -769,7 +769,7 @@ def deBelloRaoQpart(Traits_sp, RelAbun_sp, use_EqNum=True, pca_transf=True,
         # Use the RaoQ diveristy index. Not recommended since beta divesity
         # takes low values even if species are barely repeated within
         # communities (at least for taxonomic diversity, but compare the
-        # results in de Bello et al, (2010) and Pacheco-Labrador (under review).
+        # results in de Bello et al, (2010) and Pacheco-Labrador (2023).
         # For functional diversity, dimensionality rapidly compresses the
         # of fractions alpha and beta diveristy. 
         if tax_div is True and get_extra_outs is False:
@@ -847,7 +847,7 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
     n_sigmas_norm : float, optional
         Number of standard deviations to the mean where the bounds are placed
         during standardization. This is used for the Generalizable
-        Normalization approach (Pacheco-Labrador et al, under review). The
+        Normalization approach (Pacheco-Labrador et al, 2023). The
         default is 6.0.
     calculate_FRic : boolean, optional
         Whether or not to compute Functional Richness (FRic). The default is
@@ -893,13 +893,13 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
         in de Bello et al, (2010), including diversity components and
         fractions of alpha and beta-diversity. Dissimilarity normalized using
         the Generalizable Normalization approach described in Pacheco-Labrador
-        et al, under review.
+        et al, 2023.
     ENdp_Gnorm : Dictionary (or None)
         Equivalent number-based diversity decomposition metrics described
         in de Bello et al, (2010), including diversity components and
         fractions of alpha and beta-diversity. Dissimilarity normalized using
         the Generalizable Normalization approach described in
-        Pacheco-Labrador et al, under review.
+        Pacheco-Labrador et al, 2023.
     RQdp_Lnorm : Dictionary (or None)
         Rao Quadratic entropy-based diversity decomposition metrics described
         in de Bello et al, (2010), including diversity components and

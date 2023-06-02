@@ -7,7 +7,7 @@ DESCRIPTION:
 ==============================================================================
 This script performs the simulation of plant communities, species traits and
     corresponding reflectance factors used for the evaluation of the package
-    pyGNDiv presented in Pacheco-Labrador, J. et al, (under review). It also
+    pyGNDiv presented in Pacheco-Labrador, J. et al, (2023). It also
     uses the package to compute functional diversity metrics and parition
     diversity alpha, beta and gamma components with various normalization
     approaches.
@@ -17,7 +17,7 @@ The script has been used to generate the test dataset /test_data/ included in
 
 Cite as:
   Pacheco-Labrador, J., de Bello, F., Migliavacca , M., Ma, X., Carvalhais, N.,
-    & Wirth, C. (under review). A generalizable normalization for assessing
+    & Wirth, C. (2023). A generalizable normalization for assessing
     plant functional diversity metrics across scales from remote sensing.
     Methods in Ecology and Evolution.
 """

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 # This file is part of pyGNDiv.
-# Copyright 2022 Javier Pacheco-Labrador and contributors listed in the
+# Copyright 2023 Javier Pacheco-Labrador and contributors listed in the
 # README.md file.
 #
 # This program is free software: you can redistribute it and/or modify
