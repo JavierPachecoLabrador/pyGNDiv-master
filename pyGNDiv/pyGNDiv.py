@@ -415,6 +415,7 @@ def get_FRic(comps, abund_, fexp=.98, n_sp=[], onevar_warning=True,
                   " volume.")
         FRic = np.zeros(abund_.shape[0]) * np.nan
         FRic_Gnorm = np.zeros(abund_.shape[0]) * np.nan
+        FRic_Lnorm = np.zeros(abund_.shape[0]) * np.nan
     else:
         # Get the number of unique species (dbFD.R line 307)
         # traits <- round(x.pco$li, .Machine$double.exponent)
