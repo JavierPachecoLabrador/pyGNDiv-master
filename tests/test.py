@@ -4,6 +4,9 @@ Created on Tue Jun 28 08:41:04 2022
 
 @author: Javier Pacheco-Labrador, PhD (jpacheco@bgc-jena.mpg.de)
          Max Planck Institute for Biogeochemsitry, Jena, Germany
+        Currently: javier.pacheco@csic.es
+         Environmental Remote Sensing and Spectroscopy Laboratory (SpecLab)
+         Spanish National Research Council (CSIC)
 
 DESCRIPTION:
 ==============================================================================

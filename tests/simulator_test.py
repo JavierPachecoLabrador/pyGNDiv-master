@@ -1,7 +1,9 @@
-# -*- coding: utf-8 -*-
 """
 @author: Javier Pacheco-Labrador, PhD (jpacheco@bgc-jena.mpg.de)
          Max Planck Institute for Biogeochemsitry, Jena, Germany
+        Currently: javier.pacheco@csic.es
+         Environmental Remote Sensing and Spectroscopy Laboratory (SpecLab)
+         Spanish National Research Council (CSIC)
 
 DESCRIPTION:
 ==============================================================================
@@ -702,6 +704,7 @@ if __name__ == "__main__":
     ini_run = 0
     end_run = ini_run + n_commun_run[0]
 
+    t_start = time.time()
     for n_runs in range(num_regions):
         # Update random seeds so that the same parameters and abundances are
         # generated for runs with different bands and noises consistently
@@ -766,6 +769,10 @@ if __name__ == "__main__":
                 db_.to_csv((folder_out + 'Region_%d_PlantTraits.txt' %
                             (n_runs + 1)), sep=';', index=False)
 
+    print('\n*****************************************************')
+    print('Total ellapsed time: elapsed time %.2f minutes...'
+          % ((time.time()-t_start) / 60.))
+    
     # Store Functional Diversity Metrics --------------------------------------
     if sensor == 'Hy':
         with open(folder_out + 'FDMs_PT.pkl', 'wb') as f:
