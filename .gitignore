@@ -2,7 +2,7 @@ validation_data*
 validation.py
 vert.txt
 tests/Test/*
-tests/__pycache__
+tests/__pycache__/*
 tests/test_imagery_performance.txt
 *.png
 *.pyc
