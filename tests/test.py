@@ -29,12 +29,15 @@ Cite as:
 """
 
 # %% Import
-import pyGNDiv as gnd
 import os
+import sys
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sn
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..') + '//'))
+from pyGNDiv import pyGNDiv as gnd
 
 
 # %% Functions

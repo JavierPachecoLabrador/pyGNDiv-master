@@ -26,18 +26,20 @@ Cite as:
 
 # %% Imports ------------------------------------------------------------------
 import os
+import sys
 from sys import argv
 import pickle
 import joblib
 import copy
-
 import pandas as pd
 import numpy as np
 import time as time
 import random as random
 import scipy
 from pyDOE import lhs
-import pyGNDiv as gnd
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..') + '//'))
+from pyGNDiv import pyGNDiv as gnd
 
 
 # %% Functions ----------------------------------------------------------------
