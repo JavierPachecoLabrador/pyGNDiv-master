@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-@author: Javier Pacheco-Labrador, Ph.D. (jpacheco@bgc-jena.mpg.de)
+@author: Javier Pacheco-Labrador, PhD (jpacheco@bgc-jena.mpg.de)
          Max Planck Institute for Biogeochemsitry, Jena, Germany
         Currently: javier.pacheco@csic.es
          Environmental Remote Sensing and Spectroscopy Laboratory (SpecLab)
@@ -8,13 +9,14 @@
 DESCRIPTION:
 ==============================================================================
 This package contains the main functions of the Generalizable Normalization of
-    Functional Diversity Metrics proposed in Pacheco-Labrador, J. et al, 2023.
+    Functional Diversity Metrics proposed in Pacheco-Labrador, J. et al, under
+    review.
 
 Cite as:
   Pacheco-Labrador, J., de Bello, F., Migliavacca , M., Ma, X., Carvalhais, N.,
     & Wirth, C. (2023). A generalizable normalization for assessing
     plant functional diversity metrics across scales from remote sensing.
-    Methods in Ecology and Evolution.  https://doi.org/10.1111/2041-210X.14163
+    Methods in Ecology and Evolution.
 
 The package computes the following functional diversity metrics:
     * Rao's Quadratic entropy index (Q). Based on the rasterdiv R package from
@@ -58,7 +60,9 @@ REFERENCES:
         origin and back. Methods in Ecology and Evolution, 12, 1093-1102.
 
 HISTORY:
-    * Created: 30-Jan-2023. Javier Pacheco-Labrador, PhD.
+    * Created: 16-May-2023. Javier Pacheco-Labrador, PhD. Improve RaoQ
+    calculation with Numba. Computation is accelerated several times, depending 
+    on the data volume.
 """
 
 # %% Imports
@@ -70,6 +74,8 @@ from itertools import combinations_with_replacement
 from scipy.spatial import ConvexHull
 from math import gamma
 from wpca import WPCA
+
+from numba import njit, uint8, uint32, float64
 
 
 # %% Ancillary Functions
@@ -207,23 +213,23 @@ def div_zeros(a, b):
 
     return(np.divide(a, b, out=np.zeros_like(a), where=b != 0.))
 
+# @njit()
+# def euclidean_dist(x, y):
+#     """
+#     Computes euclidean distance between two n-dimensional vectors
+#     """
+#     return(np.sqrt(np.sum((x - y) ** 2)))
 
-def euclidean_dist(x, y):
-    """
-    Computes euclidean distance between two n-dimensional vectors
-    """
-    return((np.sum((x - y) ** 2)) ** .5)
-
-
+@njit(float64(float64[:, :], uint32, uint32))
 def euc_dist_rao(x_, i_, j_):
     """
     Computes euclidean distance between two n-dimensional vectors which are
     rows selected from a sample x traits matrix
     """
-    return((np.sum((x_[i_, :] - x_[j_, :]) ** 2)) ** .5)
+    return(np.sqrt(np.sum((x_[i_, :] - x_[j_, :]) ** 2)))
 
 
-# %% Maximum values for Generalizable Normalization
+# %% Maximum values for Global normalization
 """
 Maximum values proposed for the generalizable normalization approach in
 Pacheco-Labrador et al, 2023
@@ -255,7 +261,7 @@ def hypersphere_volume(radius, n_dims):
     return(V_n)
 
 
-# %% Rao Quadratic Entropy adapted from rasterdiv (from Rocchini et al, 2021)
+# %% Rao Quadratic Entropy adapted from rasterdiv (from Rocchini et al. 2021)
 """
 Python implementation of some of the functions in the raterdiv package of
 Rocchini et al, (2021). rasterdiv—An Information Theory tailored R package
@@ -271,30 +277,121 @@ species x trait and abundance x species matrices.
 """
 
 
-def mpaRaoS_freq(X, freq_, alphas_=[1], nan_tolerance=0., normalize_dist=False,
-                 tax_div=False, get_extra_outs=False, out_intvar_in=None,
-                 max_dist_=0.):
+@njit(uint8[:](uint32[:,:]))
+def get_Idiag(comb):
+    I_diag = np.ones(comb.shape[0], dtype=np.uint8)
+    I_diag[np.where((comb[:, 0] == comb[:, 1]))[0]] = 0
+    # for iii_ in range(comb.shape[0]):
+    #     if comb[iii_, 0] == comb[iii_, 1]:
+    #         I_diag[iii_] = 0
+    return(I_diag)
+
+
+@njit(float64[:](float64[:, :], uint32[:, :], uint8[:]))
+def get_euc_dist_rao(X, comb, I_diag):
+    dists_ = np.zeros(comb.shape[0], dtype=np.float64)
+    for iii_ in range(comb.shape[0]):
+        if I_diag[iii_] == 1:
+            dists_[iii_] = euc_dist_rao(X, comb[iii_, 0], comb[iii_, 1])
+    return(dists_)
+
+
+@njit(float64[:](float64[:, :], uint32[:, :], uint32))
+def get_comb_freq(freq_, comb, i_):
+    comb_freq_ = np.zeros(comb.shape[0], dtype=np.float64)
+    for iii_ in range(comb.shape[0]):
+        comb_freq_[iii_] = freq_[i_, comb[iii_, 0]] * freq_[i_, comb[iii_, 1]]
+    return(comb_freq_)
+
+
+@njit(float64[:, :](float64[:], float64, float64[:], uint8[:], float64[:]))
+def get_raoQ(comb_freq_, nan_tolerance, dists_, I_diag, alphas_):
+    """
+    Compute RaoQ
+    """
+    # Preallocate
+    raoQ = np.zeros((1, alphas_.shape[0]), dtype=np.float64) * np.nan
+    # If there are more data than the predefined treshold of acceptable data
+    if np.sum(comb_freq_) > nan_tolerance:
+        I_ = np.where(comb_freq_ > 0.)[0]
+        I_d = np.where(comb_freq_ * dists_ > 0.)[0]
+
+        # Do this way to avoid np.all for numba
+        # I_dd = np.where(np.all((comb_freq_ > 0., I_diag == 1), axis=0))[0]
+        I_dd = np.zeros(comb_freq_.shape[0], dtype=np.uint32)
+        j_ = 0
+        for i_ in range(comb_freq_.shape[0]):
+            if comb_freq_[i_] > 0. and I_diag[i_] == 1:
+                I_dd[j_] = i_
+                j_ += 1
+        I_dd = I_dd[:j_]
+
+        eq_window = 2 * I_diag[I_].shape[0] - I_diag[I_diag == 0].shape[0]
+        k_ = 0
+        for alpha in alphas_:
+            # alpha = alphas_[k_]
+            # print(k_)
+            if np.isinf(alpha):
+                raoQ[0, k_] = np.nanmax(dists_[I_] * 2)
+            elif alpha == 0:
+                if eq_window > 0.:
+                    raoQ[0, k_] = (np.nanprod(dists_[I_dd]) **
+                                   (1 / (eq_window)))
+                else:
+                    raoQ[0, k_] = 0.
+            elif alpha > 0:
+                raoQ[0, k_] = ((2 * dists_[I_d]**alpha @
+                                comb_freq_[I_d].T) ** (1 / alpha))
+            k_ += 1
+    return(raoQ)
+
+
+@njit(float64[:, :](float64[:, :], uint32[:, :], float64, float64[:], uint8[:],
+                    float64[:]))
+def do_raoQ_loop(freq_, comb, nan_tolerance, dists_, I_diag,
+                 alphas_):
+    "Loop through communities to compute RaoQ"
+    # Preallocates
+    raoQ = np.zeros((freq_.shape[0], alphas_.shape[0])) * np.nan
+
+    # Loop
+    for i_ in range(freq_.shape[0]):
+        comb_freq_ = get_comb_freq(freq_, comb, i_)
+        raoQ[i_, :] = get_raoQ(comb_freq_, nan_tolerance, dists_,
+                               I_diag, alphas_)
+
+    return(raoQ)
+
+
+def mpaRaoS_freq(X, freq_, alphas_=np.ones(1), nan_tolerance=0.,
+                 normalize_dist=False, tax_div=False, get_extra_outs=False,
+                 out_intvar_in=None, max_dist_=0.):
     """
     Version of mpaRaoS.R function that takes a matrix X of unique species-
     values (observations in rows, variables in columns); and different
     combinations of their frequencies (combinations ~windows in rows, species
     in columns)
     """
-    # Check if alpha is iterable and convert it to list otherwise
-    if ((not isinstance(alphas_, list)) and (not isinstance(alphas_,
-                                                            np.ndarray))):
-        alphas_ = [alphas_]
+    X = X.astype(dtype=np.float64)
+    # Check if alpha is iterable array and convert it otherwise
+    if not isinstance(alphas_, np.ndarray):
+        if isinstance(alphas_, list):
+            alphas_ = np.array(alphas_)
+        else:
+            alphas_ = np.array([alphas_])
 
     # Generate combination of pixels to be compared or use the input one
     # provided if as input
     if out_intvar_in is None:
-        comb = list(combinations_with_replacement(range(X.shape[0]), 2))
-        I_diag = np.ones(len(comb))
-        for iii_ in range(len(comb)):
-            if comb[iii_][0] == comb[iii_][1]:
-                I_diag[iii_] = 0
+        comb = np.array(list(combinations_with_replacement(
+            range(X.shape[0]), 2)), dtype=np.uint32)
+        # I_diag = np.ones(len(comb))
+        # for iii_ in range(len(comb)):
+        #     if comb[iii_][0] == comb[iii_][1]:
+        #         I_diag[iii_] = 0
+        I_diag = get_Idiag(comb)
     else:
-        comb = out_intvar_in['comb']
+        comb = out_intvar_in['comb'].astype(np.uint32)
         I_diag = out_intvar_in['I_diag']
 
     # Compute RaoQ and the euclidean distances
@@ -319,23 +416,21 @@ def mpaRaoS_freq_i(X, comb, freq_, I_diag, alphas_, nan_tolerance=0.,
     """
     Compute the dissimilarity metric (Euclidean distance) and RaoQ
     """
-    # Preallocates
-    raoQ = np.zeros((freq_.shape[0], len(alphas_)))*np.nan
-
     # Compute distances.
     if tax_div is False:
         # For functional diversity, compute distances between traits
         if out_intvar_in is None:
-            dists_ = np.zeros(len(comb))
-            for iii_ in range(len(comb)):
-                if I_diag[iii_] == 1:
-                    dists_[iii_] = euc_dist_rao(X, comb[iii_][0],
-                                                comb[iii_][1])
+            # dists_ = np.zeros(len(comb))
+            # for iii_ in range(len(comb)):
+            #     if I_diag[iii_] == 1:
+            #         dists_[iii_] = euc_dist_rao(X, comb[iii_][0],
+            #                                     comb[iii_][1])
+            dists_ = get_euc_dist_rao(X, comb, I_diag)
         else:
             dists_ = copy.deepcopy(out_intvar_in['dists_'])
 
         # Normalize distances. Necessary for using equivalent numbers in
-        # of alpha and beta-diversity partitioning (de Bello et al, (2010))
+        # of alpha and beta-diversity partitioning (de Bello et al. (2010))
         if normalize_dist is True:
             if max_dist_ > 0.:
                 dists_ = dists_ / max_dist_
@@ -349,50 +444,21 @@ def mpaRaoS_freq_i(X, comb, freq_, I_diag, alphas_, nan_tolerance=0.,
         dists_ = copy.deepcopy(I_diag)
 
     # Compute RaoQ
-    i_ = 0
-    for i_ in range(freq_.shape[0]):
-        comb_freq_ = np.zeros(len(comb)) * np.nan
-        for iii_ in range(len(comb)):
-            comb_freq_[iii_] = (freq_[i_, comb[iii_][0]] *
-                                freq_[i_, comb[iii_][1]])
-        raoQ[i_, :] = get_raoQ(comb_freq_, nan_tolerance, dists_,
-                               I_diag, alphas_)
+    raoQ = do_raoQ_loop(freq_, comb, nan_tolerance, dists_, I_diag, alphas_)
+    # i_ = 0
+    # for i_ in range(freq_.shape[0]):
+    #     # comb_freq_ = np.zeros(comb)) * np.nan
+    #     # for iii_ in range(len(comb)):
+    #     #     comb_freq_[iii_] = (freq_[i_, comb[iii_][0]] *
+    #     #                         freq_[i_, comb[iii_][1]])
+    #     comb_freq_ = get_comb_freq(freq_, comb, i_)
+    #     raoQ[i_, :] = get_raoQ(comb_freq_, nan_tolerance, dists_,
+    #                            I_diag, alphas_)
 
     if out_shp == []:
         return(np.squeeze(raoQ), dists_)
     else:
         return(raoQ.reshape(out_shp), dists_)
-
-
-def get_raoQ(comb_freq_, nan_tolerance, dists_, I_diag, alphas_):
-    """
-    Compute RaoQ
-    """
-    # Preallocate
-    raoQ = np.zeros((1, len(alphas_))) * np.nan
-    # If there are more data than the predefined treshold of acceptable data
-    if sum(comb_freq_) > nan_tolerance:
-        I_ = np.where(comb_freq_ > 0.)[0]
-        I_d = np.where(comb_freq_ * dists_ > 0.)[0]
-        I_dd = np.where(np.all((comb_freq_ > 0., I_diag == 1), axis=0))[0]
-        eq_window = 2 * len(I_diag[I_]) - len(I_diag[I_diag == 0])
-        k_ = 0
-        for alpha in alphas_:
-            # alpha = alphas_[k_]
-            # print(k_)
-            if np.isinf(alpha):
-                raoQ[0, k_] = np.nanmax(dists_[I_] * 2)
-            elif alpha == 0:
-                if eq_window > 0.:
-                    raoQ[0, k_] = (np.nanprod(dists_[I_dd]) **
-                                   (1 / (eq_window)))
-                else:
-                    raoQ[0, k_] = 0.
-            elif alpha > 0:
-                raoQ[0, k_] = ((2 * dists_[I_d]**alpha @
-                                comb_freq_[I_d].T) ** (1 / alpha))
-            k_ += 1
-    return(raoQ)
 
 
 # %% Functional Richness
@@ -483,7 +549,7 @@ def LalibertePart_w(X, RelAbun_sp, pca_transf=True, normalize=False,
                     SS_max_in=1., n_sigmas_norm=6.):
     """
     Apply variance-based partitioninig of alpha, beta and gamma-diversities
-    using the method from Laliberte et al, 2020
+    using the method from Laliberte et al. 2020
     Inputs:
         X (Traits_sp): traits matrix of n species x m traits
         RelAbun_sp: frequency matrix of p populations x n species
@@ -770,7 +836,7 @@ def deBelloRaoQpart(Traits_sp, RelAbun_sp, use_EqNum=True, pca_transf=True,
         # Use the RaoQ diveristy index. Not recommended since beta divesity
         # takes low values even if species are barely repeated within
         # communities (at least for taxonomic diversity, but compare the
-        # results in de Bello et al, (2010) and Pacheco-Labrador (2023).
+        # results in de Bello et al. (2010) and Pacheco-Labrador (2023).
         # For functional diversity, dimensionality rapidly compresses the
         # of fractions alpha and beta diveristy. 
         if tax_div is True and get_extra_outs is False:
@@ -816,15 +882,15 @@ def deBelloRaoQpart(Traits_sp, RelAbun_sp, use_EqNum=True, pca_transf=True,
 
 
 # %% Main function. Diversity partition and index normalization.
-def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
+def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1.], fexp_var_in=.98,
                 n_sigmas_norm=6., calculate_FRic=True,
                 calculate_variance_part=True, calculate_RaoQ_part=True,
                 calculate_tax_part=True):
     """
     pyGNDiv allows computing different diversity indices (Rao's Quadratic
     Entropy, it's equivalent number and Functional Richness') applying none,
-    local (per region) and generalizable (Pacheco-Labrador et al, (2023))
-    normalization.
+    local (per region) and generalizable (Pacheco-Labrador et al, (under
+    review)) normalization.
 
     Then, parititioning into alpha, beta and gamma diveristy is applied using
     a variance-based partitioning (Laliberté et al, 2020) or diveristy
@@ -878,7 +944,8 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
         Variance analysis metrics described in Laliberté et al, 2020,
         including diversity components and fractions of alpha and beta
         diversity. Sum of squared normalized using the Generalizable
-        Normalization approach described in Pacheco-Labrador et al, 2023.
+        Normalization approach described in Pacheco-Labrador et al, under
+        review.
     VBdp_Lnorm : Dictionary (or None)
         Variance analysis metrics described in Laliberté et al, 2020,
         including diversity components and fractions of alpha and beta
@@ -921,7 +988,7 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
         the maximum value in each region or image (local).
     """
 
-# %%% Standardization, dimensionality reduction, and  maximum dissimilarities
+# %%% Standardization, dimensionality reduction, global maximum dissimilarities
 
     # Applies a weighted standardization and PCA for Laliberté since weighted
     # mean must be centered, and regular PCA to de Bello approach and FRic
@@ -948,12 +1015,12 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
     else:
         FRic = None
 
-    # %%% Variance-based diverity partitioning (Laliberté et al, 2020)
+    # %%% Variance-based diverity partitioning (Laliberté et al. 2020)
     if calculate_variance_part is True:
         # Without normalization.
         VBdp = LalibertePart_w_wrap(Yw, RelAbun_sp, normalize=False,
                                     SS_max_in=1., pca_transf=False)
-        # Generalizable Normalization
+        # Global Normalization
         VBdp_Gnorm = LalibertePart_w_wrap(Yw, RelAbun_sp, normalize=True,
                                           SS_max_in=SS_maxW, pca_transf=False)
         # Local normalization.
@@ -963,7 +1030,7 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
         VBdp, VBdp_Gnorm, VBdp_Lnorm = None, None, None
 
     # %%% Diversity decomposition with Rao Q and equivalent numbers following
-    # de Bello et al, (2010)
+    # de Bello et al. (2010)
     if calculate_RaoQ_part is True:
         # Without normalization.
         # Use Rao Q index. Get also the absolute
@@ -976,7 +1043,7 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
              Y, RelAbun_sp, use_EqNum=False, pca_transf=False, alphas_=alphas_,
              get_extra_outs=True, normalize_dist=False)
 
-        # Generalizable Normalization. Use Rao Q index
+        # Global Normalization. Use Rao Q index
         RQdp_Gnorm = dict()
         (RQdp_Gnorm['alpha_mean'], RQdp_Gnorm['beta_add'], RQdp_Gnorm['gamma'],
          RQdp_Gnorm['Falpha'], RQdp_Gnorm['Fbeta'],
@@ -986,7 +1053,7 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
              out_intvar_in=out_intvar, max_dist_in=max_dist_,
              normalize_dist=True)
 
-        # Generalizable Normalization. Use Rao Q equivalent number
+        # Global Normalization. Use Rao Q equivalent number
         # Speed up from already computed RaoQ_Gnorm
         ENdp_Gnorm = dict()
         (ENdp_Gnorm['RaoQ'], ENdp_Gnorm['alpha_mean'], ENdp_Gnorm['beta_add'],
@@ -995,13 +1062,13 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
              div_part_EqNum(RaoQ_Gnorm.reshape(-1, 1), RelAbun_sp.shape[0],
                             reshp_=True))
         # This could be done, but forces to re-compute RaoQ.
-        # (ENdp_Gnorm['alpha_mean'], ENdp_Gnorm['beta_add'],
-        #   ENdp_Gnorm['gamma'], ENdp_Gnorm['Falpha'], ENdp_Gnorm['Fbeta'],
+        # (ENdp_Gnorm['alpha_mean'], ENdp_Gnorm['beta_add'], ENdp_Gnorm['gamma'],
+        #   ENdp_Gnorm['Falpha'], ENdp_Gnorm['Fbeta'],
         #   ENdp_Gnorm['Falpha_norm'], ENdp_Gnorm['Fbeta_norm'],
         #   ENdp_Gnorm['RaoQ'], Qeq_Gnorm) = deBelloRaoQpart(
-        #       Y, RelAbun_sp, use_EqNum=True, pca_transf=False,
+        #       Y, RelAbun_sp, use_EqNum=True, pca_transf=False, alphas_=alphas_,
         #       out_intvar_in=out_intvar, max_dist_in=max_dist_,
-        #       alphas_=alphas_, normalize_dist=True)
+        #       normalize_dist=True)
 
         # Local Normalization. Use Rao Q index
         m_dist_local = np.max(out_intvar['dists_'])
@@ -1023,13 +1090,13 @@ def pyGNDiv_fun(Traits_sp, RelAbun_sp, alphas_=[1], fexp_var_in=.98,
              div_part_EqNum(RaoQ_Lnorm.reshape(-1, 1), RelAbun_sp.shape[0],
                             reshp_=True))
         # This could be done, but forces to re-compute RaoQ.
-        # (ENdp_Lnorm['alpha_mean'], ENdp_Lnorm['beta_add'],
-        #   ENdp_Lnorm['gamma'], ENdp_Lnorm['Falpha'], ENdp_Lnorm['Fbeta'],
+        # (ENdp_Lnorm['alpha_mean'], ENdp_Lnorm['beta_add'], ENdp_Lnorm['gamma'],
+        #  ENdp_Lnorm['Falpha'], ENdp_Lnorm['Fbeta'],
         #  ENdp_Lnorm['Falpha_norm'], ENdp_Lnorm['Fbeta_norm'],
         #  ENdp_Lnorm['RaoQ'], Qeq_Lnorm) = deBelloRaoQpart(
-        #      Y, RelAbun_sp, use_EqNum=True, pca_transf=False,
-        #      alphas_=alphas_, out_intvar_in=out_intvar,
-        #      max_dist_in=m_dist_local, normalize_dist=True)
+        #      Y, RelAbun_sp, use_EqNum=True, pca_transf=False, alphas_=alphas_,
+        #      out_intvar_in=out_intvar, max_dist_in=m_dist_local,
+        #      normalize_dist=True)
 
     # %%% Return
     return(FRic, VBdp, VBdp_Gnorm, VBdp_Lnorm, RQdp, RQdp_Gnorm, ENdp_Gnorm,
