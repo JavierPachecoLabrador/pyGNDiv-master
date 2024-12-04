@@ -724,7 +724,7 @@ def div_part_EqNum(RaoQ_, n_comm, reshp_=False):
     """
     # Eq. 6
     alpha_ = div_zeros(np.ones_like(RaoQ_[:-1, :]), 1 - RaoQ_[:-1, :])
-    alpha_mean_ = div_zeros(1., 1 - np.nanmean(RaoQ_[:-1, :], axis=0))
+    alpha_mean_ = div_zeros(1., 1. - np.nanmean(RaoQ_[:-1, :], axis=0))
     # Eq. 7
     gamma_ = div_zeros(np.ones_like(RaoQ_[-1, :]), 1 - RaoQ_[-1, :])
     # Eq. 13

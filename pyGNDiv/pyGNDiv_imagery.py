@@ -247,7 +247,7 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
     
     raoQ['RaoQ_mean'] = np.nanmean(raoQ['RaoQ'])
     raoQ['RaoQ_median'] = np.nanmedian(raoQ['RaoQ'])
-    raoQ['RaoQ_mean'] = np.nanstd(raoQ['RaoQ'])
+    raoQ['RaoQ_std'] = np.nanstd(raoQ['RaoQ'])
     report_time(t0)
     
     # If requested, copmutes RaoQ over the whole scene and uses Rao Q to
@@ -290,7 +290,7 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
                 raoQ4part, raoQ['RaoQ'].size)
             raoQ_part['alpha'] = alpha_mean_
             raoQ_part['beta'] = beta_add
-            raoQ_part['gama'] = gamma_
+            raoQ_part['gamma'] = gamma_
             raoQ_part['f_alpha'] = alpha_prop_norm
             raoQ_part['f_beta'] = beta_prop_norm
 
