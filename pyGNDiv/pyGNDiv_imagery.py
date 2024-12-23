@@ -90,8 +90,14 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
         if redo_cube is False:
             cube_pca_ = cube_pca_.reshape(-1, 1)
             
-        max_dist_Eucl_ = None
-        max_dist_SS_ = None
+        max_dist_Eucl_ = gnd.max_eucl_dist_PCA_fun(1, fexp_var=fexp_var_in,
+                                                   n_sigmas=n_sigmas_norm)
+        # Watch out, here mask.sum() does not guarantee that the number of
+        # pixels used to compute SS matches the number of finite pixels, 
+        # depending on the NaN tolerance        
+        max_dist_SS_ = gnd.max_SS_PCA_fun(1, mask_.sum(),
+                                          fexp_var=fexp_var_in,
+                                          n_sigmas=n_sigmas_norm)
         explained_variance_ratio_ = 1.
         n_cmps_ = 1
     else:
@@ -198,7 +204,7 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
         if weight_in == None:
             (cube_pca, max_dist_Eucl, _, _, n_cmps) = apply_pca_cube(
                 cube_, mask_=mask_in, fexp_var_in=fexp_var_in,
-                n_sigmas_norm=n_sigmas_norm, weigth_in_=weight_in)
+                n_sigmas_norm=n_sigmas_norm, weight_in_=weight_in)
 
     # Compute the weights to be used for each pixel of the moving window
     weight_w = window_weights(weight_in, wsz_)
