@@ -37,11 +37,15 @@ setup(name='pyGNDiv',
                    'License :: OSI Approved :: GNU General Public License (GPL)',
                    'Programming Language :: Python :: 3',
                    'Programming Language :: Python :: 3.7'
-                   'Programming Language :: Python :: 3.8'],
+                   'Programming Language :: Python :: 3.8'
+                   'Programming Language :: Python :: 3.9'
+                   'Programming Language :: Python :: 3.10'
+                   'Programming Language :: Python :: 3.11'
+                   'Programming Language :: Python :: 3.12'],
       keywords=['Remote Sensing', 'Plant Functional Diversity',
                 'Rao Quadratic Entropy', 'Functional Richness',
                 'dissimilarity', 'Normalization', 'Global'],
       packages=find_packages(),
-      install_requires=['numpy', 'sklearn', 'scipy', 'more-itertools',
+      install_requires=['numpy', 'scikit-learn', 'scipy', 'more-itertools',
                         'python-math', 'wpca', 'numba'],
       zip_safe=True)

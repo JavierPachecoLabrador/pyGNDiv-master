@@ -6,3 +6,6 @@ tests/__pycache__/*
 tests/test_imagery_performance.txt
 *.png
 *.pyc
+build/*
+pyGNDiv.egg*
+dist/*
