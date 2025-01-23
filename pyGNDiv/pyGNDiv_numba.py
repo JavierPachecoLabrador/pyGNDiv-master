@@ -674,7 +674,7 @@ def LalibertePart_w(X, RelAbun_sp, pca_transf=True, normalize=False,
     SDalpha_k = div_zeros(SSalpha_k, float(n_groups - 1.))
 
     # Eq. 22
-    SSalpha = float(RelAbun_sp_com.T @ SSalpha_k)
+    SSalpha = (RelAbun_sp_com.T @ SSalpha_k)[0]
 
     # Feature contribution to spectral diversity
     # Eq. 24
