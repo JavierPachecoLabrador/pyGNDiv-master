@@ -71,7 +71,7 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
     t0 = time.time()
     # Check sizes of cube and mask
     shp0__ = cube_.shape
-    if mask_ == None:
+    if np.any(mask_ == None):
         mask_ = np.ones((shp0__[0], shp0__[1]), dtype=bool)
     elif ((mask_.shape[0] == shp0__[0]) and (mask_.shape[1] == shp0__[1]) and 
           mask_.ndim > 2) is False:
@@ -101,7 +101,7 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
         explained_variance_ratio_ = 1.
         n_cmps_ = 1
     else:
-        if weight_in_ == None:
+        if np.any(weight_in_ == None):
             # Standardization and Principal Component Analysis
             (cube_pca_tmp, max_dist_Eucl_, max_dist_SS_,
              explained_variance_ratio_) = (
@@ -132,7 +132,7 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
 
 
 def window_weights(weight_in, wsize_):
-    if (weight_in == None):
+    if np.any(weight_in == None):
         weight_w_ = np.ones(wsize_**2).reshape(1, -1) / wsize_**2
     else:
         weight_w_ = None
@@ -141,7 +141,7 @@ def window_weights(weight_in, wsize_):
         
 
 def varpar_weights(weight_in, shp0_, wsz_2):
-    if (weight_in == None):
+    if np.any(weight_in == None):
         return(np.ones((shp0_[0], shp0_[1])) / wsz_2)
     else:
         return(weight_in)
@@ -201,7 +201,7 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
             n_cmps = cube_[4]
     else:
         # Apply Dimensionality Reductiona and standardization
-        if weight_in == None:
+        if np.any(weight_in == None):
             (cube_pca, max_dist_Eucl, _, _, n_cmps) = apply_pca_cube(
                 cube_, mask_=mask_in, fexp_var_in=fexp_var_in,
                 n_sigmas_norm=n_sigmas_norm, weight_in_=weight_in)
@@ -269,7 +269,7 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
         try:
             # Reshape the inputs and remove masked values
             cube_pca = cube_pca.reshape(shp0_[0] * shp0_[1], -1)
-            if weight_in == None:
+            if np.any(weight_in == None):
                 weight_w = np.ones(shp0_[0] * shp0_[1]).reshape(1, -1)
             else:
                 weight_w = weight_w.reshape(1, -1)
@@ -340,7 +340,7 @@ def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=0.,
         max_dist_SS = cube_[2]
     else:       
         # Apply Dimensionality Reductiona and standardization
-        if weight_in == None:
+        if np.any(weight_in == None):
             (cube_pca, _, max_dist_SS, _, n_cmps) = apply_pca_cube(
                 cube_, mask_=mask_in, fexp_var_in=fexp_var_in,
                 n_sigmas_norm=n_sigmas_norm, redo_cube=False)
