@@ -46,7 +46,7 @@ def report_time(t0_):
 
 
 def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
-                   weight_in_=None, redo_cube=True):
+                   weight_in_=None, redo_cube=True, verbose=False):
     """
     Standardize an apply PCA to a X matrix of n observations by p variables.
     Inputs:
@@ -63,18 +63,21 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
                     computation fo the functional diversity metrics. For
                     variance-based methods, it these are used to compute a 
                     weighted PCA that leads to unbiased variance estimates
-        redo_cube = boolean, if True, reshape the species x trait matrix to the
-                    original cube dimensions
+        redo_cube: boolean, if True, reshape the species x trait matrix to the
+                   original cube dimensions
+        verbose: boolean, whether to print or not screen messages
     """
     
-    print('Applying Standardization and Dimensionalty Reduction')
+    if verbose:
+        print('Applying Standardization and Dimensionalty Reduction')
+        
     t0 = time.time()
     # Check sizes of cube and mask
     shp0__ = cube_.shape
     if np.any(mask_ == None):
         mask_ = np.ones((shp0__[0], shp0__[1]), dtype=bool)
     elif ((mask_.shape[0] == shp0__[0]) and (mask_.shape[1] == shp0__[1]) and 
-          mask_.ndim > 2) is False:
+          mask_.ndim == 2) is False:
         raise ValueError('The mask provided must be None or feature the ' +
                          'same x and y dimensions than the image')
     
@@ -125,7 +128,8 @@ def apply_pca_cube(cube_, mask_=None, fexp_var_in=.98, n_sigmas_norm=6.,
             cube_pca_ = cube_pca_.reshape((shp0__[0], shp0__[1], -1))
     
     # Report time
-    report_time(t0)
+    if verbose:
+        report_time(t0)
     
     return(cube_pca_, max_dist_Eucl_, max_dist_SS_, explained_variance_ratio_,
            n_cmps_)
@@ -148,8 +152,9 @@ def varpar_weights(weight_in, shp0_, wsz_2):
 
 
 def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
-              n_sigmas_norm=6., alphas_=[1.], nan_tolerance=0.,
-              calculate_RaoQ_part=False, nan_tolerance_gamma=.01):
+              n_sigmas_norm=6., alphas_=[1.], nan_tolerance=.1,
+              calculate_RaoQ_part=False, nan_tolerance_gamma=.5,
+              output_RaoQ_as_image=True, return_pca=False, verbose=False):
     """
     Compute Rao's quadratic index (Q) and if requested apply variance-based
     partitioninig of alpha, beta and gamma diversities using the method
@@ -167,11 +172,16 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
         n_sigmas_norm: float, standardized distance to bounds (in standard
                        deviations)
         alphas_: list, aplhas for the parametric RaoQ
-        nan_tolerance: float, fraction of NaN pixels within the moving window
+        nan_tolerance: float, fraction of NaN pixels allowed within the moving
+                       window
         calculate_RaoQ_part: Boolean, if true, uses Rao Q to paritition
                              diveristy at different scales
         nan_tolerance_gamma: float, nan_tolerance applied to the computation of
                              RaoQ over the whole scene
+        output_RaoQ_as_image: boolean, determie whether the RaoQ of each moving
+                              window cell is returned in a 2D greed or as a 1D
+                              array
+        return_PCA: boolean, determine whether to return the PCA 3D cube
     """
     # Check inputs and make sure that the cube dimensions are at least as large 
     # as the  required moving window
@@ -225,7 +235,10 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
     # Generate the moving window and compute the metrics. The calculations
     # include by default the Generalized Normalization
     t0 = time.time()
-    print('Calculating Rao Q...')
+    if verbose:
+        print('Calculating Rao Q...')
+    
+    wsz_2 = wsz_ ** 2
     ki_ = 0    
     for xi_ in range(0, shp0_[1]-1, wsz_):
         kj_ = 0
@@ -233,11 +246,13 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
             # Sample the pixels within the moving window
             X = cube_pca[ji_:ji_ + wsz_, xi_:xi_ + wsz_].reshape(-1, n_cmps)
             
-            # Compute the metrics if no NaN frequency is below tolerance
-            if np.sum(np.isnan(X.sum(axis=1))) / (wsz_ ** 2) <= nan_tolerance:
+            # Compute the metrics if no NaN frequency is below tolerance at this
+            # point to prevent unnnecessary calculations within pyGNDiv
+            if (np.round(np.sum(np.any(np.isnan(X), axis=1)) / (wsz_2), 3) <=
+                nan_tolerance):
                 # Get the weights for a window if an image of a mask or weights
                 # is provided 
-                if weight_in != None:
+                if np.any(weight_in != None):
                     weight_w = (weight_in[ji_:ji_ + wsz_,
                                           xi_:xi_ + wsz_].reshape(1, -1))
                     sum_weight_w = np.sum(weight_w)
@@ -247,14 +262,18 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
                 
                 raoQ['RaoQ'][ki_, kj_], _ = gnd.mpaRaoS_freq(
                     X, weight_w, normalize_dist=True, alphas_=alphas_,
-                    nan_tolerance=nan_tolerance, max_dist_=max_dist_Eucl)
+                    nan_tolerance=0., max_dist_=max_dist_Eucl)
             kj_ += 1
         ki_ += 1
+    
+    if output_RaoQ_as_image == False:
+        raoQ['RaoQ'] = raoQ['RaoQ'].reshape(-1)
     
     raoQ['RaoQ_mean'] = np.nanmean(raoQ['RaoQ'])
     raoQ['RaoQ_median'] = np.nanmedian(raoQ['RaoQ'])
     raoQ['RaoQ_std'] = np.nanstd(raoQ['RaoQ'])
-    report_time(t0)
+    if verbose:
+        report_time(t0)
     
     # If requested, copmutes RaoQ over the whole scene and uses Rao Q to
     # partition diveristy in the alpha, gamma, and beta components. This
@@ -262,19 +281,20 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
     # the dismilarities can be extremely time-consuming
     if calculate_RaoQ_part:
         t0 = time.time()
-        print('Partitioning diversity with Rao Q...')
-        print('CAUTION: Computing Rao Q over the whole scene can be very slow' +
-              ' or require too much memory')
+        if verbose:
+            print('Partitioning diversity with Rao Q...')
+            print('CAUTION: Computing Rao Q over the whole scene can be ' +
+                ' very slow or require too much memory')
         
         try:
             # Reshape the inputs and remove masked values
             cube_pca = cube_pca.reshape(shp0_[0] * shp0_[1], -1)
-            if np.any(weight_in == None):
+            if np.all(weight_in == None):
                 weight_w = np.ones(shp0_[0] * shp0_[1]).reshape(1, -1)
             else:
                 weight_w = weight_w.reshape(1, -1)
 
-            if mask_in != None:
+            if np.all(mask_in != None):
                 mask_in = mask_in.reshape(-1)
                 cube_pca = cube_pca[mask_in]
                 cube_pca = cube_pca[mask_in]
@@ -305,14 +325,17 @@ def raoQ_grid(cube_, wsz_=3, mask_in=None, weight_in=None, fexp_var_in=.98,
                 print('Memory error: It was not possible computing Rao Q for' +
                       'the whole image.')
                 pass
-        
-        report_time(t0)
- 
-    return(raoQ, raoQ_part)    
+        if verbose:
+            report_time(t0)
+    
+    if return_pca:
+        return(raoQ, raoQ_part, cube_pca)
+    else:
+        return(raoQ, raoQ_part)    
 
 
-def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=0.,
-                 fexp_var_in=.98, n_sigmas_norm=6.):
+def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=.0,
+                 fexp_var_in=.98, n_sigmas_norm=6., verbose=False):
     # Check inputs and make sure that the cube dimensions are at least as large 
     # as the  required moving window
     if isinstance(cube_, tuple):
@@ -359,11 +382,11 @@ def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=0.,
     
     # Convert the abundance of the masked pixels to 0 so that the windows
     # containing them are filtered out 
-    if mask_in != None:
+    if np.all(mask_in != None) and np.any(mask_in == False):
         weight_w[mask_in == False] = 0.
+        cube_pca[mask_in.reshape(-1) == False] = 0.
 
     # Number of traits and groups
-    n_cmps = cube_pca.shape[1]
     n_comm = int(shp0_[0] * shp0_[1] / wsz_2)
     
     # Preallocate
@@ -385,14 +408,19 @@ def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=0.,
                 k_r += 1
 
         # Select the windows where all pixels have data
-        I_ = ((np.count_nonzero(RelAbun_sp, axis=1)).astype(float) >=
-            (wsz_2 * (1. - nan_tolerance)))
-        RelAbun_sp = gnd.div_zeros(RelAbun_sp,
-                                np.sum(RelAbun_sp, axis=1).reshape(-1, 1))
-
-        if any(I_):
+        I_ = (((np.count_nonzero(RelAbun_sp, axis=1)).astype(float) / wsz_2) >=
+              (1. - nan_tolerance))
+        
+        if np.any(I_):
+            # Normalize relative abundances
+            RelAbun_sp = gnd.div_zeros(
+                RelAbun_sp, np.sum(RelAbun_sp, axis=1).reshape(-1, 1))
+            
             t0 = time.time()
-            print('Partitioning diversity with Variance...')
+            if verbose:
+                print('Partitioning diversity with Variance...')
+                
+            # Apply partitioning
             (SSgamma, _, _, _, SSbeta, _, _,
             _, SSalpha, _, _) = (gnd.LalibertePart_w(
                 cube_pca, RelAbun_sp[I_, :], pca_transf=False,
@@ -400,7 +428,8 @@ def varpart_grid(cube_, wsz_=3, weight_in=None, mask_in=None, nan_tolerance=0.,
             f_alpha = 100 * SSalpha / SSgamma
             f_beta = 100* SSbeta / SSgamma
        
-        report_time(t0)
+        if verbose:
+            report_time(t0)
         
         frac_used = np.sum(I_) / I_.shape[0]
         
